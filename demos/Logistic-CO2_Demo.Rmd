@@ -1,0 +1,217 @@
+---
+title: "PROG8435 - Logistic Demo"
+author: ""
+date: ""
+output:
+  pdf_document: default
+  word_document: default
+---
+
+Set the working directory
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width=7, fig.height=5,
+                      fig.path='Figs/', echo = TRUE)
+#This sets the working directory
+knitr::opts_knit$set(root.dir = 'C:/Users/yunqi/OneDrive - Conestoga College/Course_teach/DataScience8435_24F/Week_11')
+
+```
+
+Clear Workspace and set format
+
+```{r, echo=FALSE}    
+if(!is.null(dev.list())) dev.off()
+cat("\014") 
+rm(list=ls())
+options(scipen=9)
+
+```
+Load and attach all the necessary packages.
+
+```{r, echo=FALSE}
+#Load packages
+#For Excel
+if(!require(tinytex)){install.packages("tinytex")}
+library("tinytex")
+
+if(!require(pastecs)){install.packages("pastecs")}
+library("pastecs")
+
+if(!require(lattice)){install.packages("lattice")}
+library("lattice")
+
+if(!require(vcd)){install.packages("vcd")}
+library("vcd")
+
+if(!require(HSAUR)){install.packages("HSAUR")}
+library("HSAUR")
+
+if(!require(rmarkdown)){install.packages("rmarkdown")}
+library("rmarkdown")
+
+if(!require(ggplot2)){install.packages("ggplot2")}
+library("ggplot2")
+
+if(!require(polycor)){install.packages("polycor")}
+library("polycor")
+
+require(stats); require(graphics)
+library("stats")
+```
+
+```{r}
+# data(C02)
+
+CO <- as.data.frame(CO2)
+
+CO <- as.data.frame(unclass(CO), stringsAsFactors = TRUE)
+
+CO$Plant <- as.numeric(CO$Plant)
+
+head(CO)
+
+str(CO)
+
+CO$HU <- as.factor(ifelse(CO$uptake >= 27,1,0))
+
+CO <- CO[,-c(5)]
+
+table(CO$HU)
+
+```
+```{r, results=FALSE}
+
+par(mfrow=c(2,2))    
+
+sapply(names(CO), function(cname){
+   if (is.numeric(CO[[cname]]))
+    print(boxplot(CO[[cname]], main=cname, xlab="",
+                  horizontal=TRUE, pch=10))
+})
+
+par(mfrow=c(1,1))
+
+
+par(mfrow=c(2,2))
+
+for (i in 1:ncol(CO)) {
+  if (is.factor(CO[,i])) {
+      ct <- table(CO[i])
+      barplot(ct, main=names(CO)[i])
+  }
+  }
+
+par(mfrow=c(1,1))
+
+```
+```{r, warning=FALSE}
+
+
+  ht <- hetcor(CO)  #from polycor library
+  round(ht$correlations,2)
+
+
+```
+```{r}
+sr <- 0.75
+
+n.row <- nrow(CO)
+
+set.seed(8435)
+training.rows <- sample(1:n.row, sr*n.row, replace=FALSE)
+
+train <- subset(CO[training.rows,])
+
+test <- subset(CO[-c(training.rows),])
+
+summary(train)
+
+summary(test)
+
+
+```
+
+
+
+
+
+
+```{r}
+glm.fit <- glm(HU ~ .,
+               data = train,
+               family="binomial")
+summary(glm.fit)
+
+
+glm.bck <- step(glm.fit, direction="backward", trace=0)
+summary(glm.bck)
+
+plot(glm.bck, which=4, id.n=4)
+
+
+```
+
+```{r}
+head(train)
+train
+
+train1 <- train[-c(56),]
+
+train1
+
+glm.res <- glm(HU ~ Type + Treatment + conc,
+               data=train1,
+               family="binomial")
+summary(glm.res)
+
+plot(glm.res, which=4, id.n=4)
+
+```
+```{r}
+
+resp_glm <- predict(glm.bck, newdata=train, type="response")   
+Class_glm <- ifelse(resp_glm > 0.5,"1","0")           
+CF_bck_t <- table(train$HU, Class_glm,
+                dnn=list("Actual","Predicted") ) 
+CF_bck_t
+
+TP <- CF_bck_t[2,2]
+TN <- CF_bck_t[1,1]
+FP <- CF_bck_t[1,2]
+FN <- CF_bck_t[2,1]
+
+Acc <- (TP+TN)/(TP+TN+FP+FN)
+Sen <- (TP)/(TP+FN)
+Spe <- (TN)/(TN+FP)
+
+Acc
+Sen
+Spe
+
+
+
+```
+
+####Check Against Test dataset
+```{r}
+
+resp_glm <- predict(glm.bck, newdata=test, type="response")   
+Class_glm <- ifelse(resp_glm > 0.5,"1","0")           
+CF_bck_ts <- table(test$HU, Class_glm,
+                dnn=list("Actual","Predicted") ) 
+CF_bck_ts
+
+TP <- CF_bck_ts[2,2]
+TN <- CF_bck_ts[1,1]
+FP <- CF_bck_ts[1,2]
+FN <- CF_bck_ts[2,1]
+
+Acc <- (TP+TN)/(TP+TN+FP+FN)
+Sen <- (TP)/(TP+FN)
+Spe <- (TN)/(TN+FP)
+
+Acc
+Sen
+Spe
+```
+
